@@ -51,7 +51,7 @@ colormap(d2c)
 % HCB=colorbar;
 
 % frequency or period axis?
-if Args.FreqAxis == 1,          % for frequency
+if Args.FreqAxis == 1          % for frequency
     yvalues = 1./period;
     Yticks = fliplr(2.^(fix(log2(min(yvalues))):fix(log2(max(yvalues)))));
     set(gca,'YTick',log2(1./Yticks(:)))
@@ -71,7 +71,11 @@ set(gca,'YLim',log2([min(period),max(period)]), ...
 hold on
 
 %phase plot
-aWxy=angle(Wxy);
+if ~isreal(Wxy)
+    aWxy=angle(Wxy);
+else
+    aWxy = Wxy;
+end
 aaa=aWxy;
 aaa(Rsq<.5)=NaN; %remove phase indication where Rsq is low
 %[xx,yy]=meshgrid(t(1:5:end),log2(period));
