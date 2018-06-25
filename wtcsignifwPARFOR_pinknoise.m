@@ -1,4 +1,4 @@
-function wtcsig=wtcsignifwPARFOR(mccount,ar1,dt,n,pad,dj,s0,j1,mother,cutoff)
+function wtcsig=wtcsignifwPARFOR_pinknoise(mccount,ar1,dt,n,pad,dj,s0,j1,mother,cutoff)
 % Wavelet Coherence Significance Calculation (Monte Carlo)
 %
 % wtcsig=wtcsignif(mccount,ar1,dt,n,pad,dj,s0,j1,mother,cutoff)
@@ -79,11 +79,8 @@ n=ceil(ms*6);
 
 warned=0;
 %precalculate stuff that's constant outside the loop
-if size(ar1,1) > 1  % check if AR parameters are from naive or 'arcov' estimator
-    d1=rednoise_ar1(n,ar1(1,2),1);
-else
-    d1=rednoise_ar1(n,ar1(1),1);
-end
+d1=pinknoise(n);
+
 [W1,period,scale,coi] = wavelet(d1,dt,pad,dj,s0,j1,mother);
 outsidecoi=zeros(size(W1));
 for s=1:length(scale)
@@ -123,13 +120,8 @@ wlc=zeros(length(scale),nbins,mccount);
 parfor ii=1:mccount
 %     disp(['Monte Carlo count iteration ',num2str(ii)])
 %     waitbar(ii/mccount,wbh);
-    if size(ar1,1) > 1  % check if AR parameters are from naive or 'arcov' estimator
-        d1=rednoise_ar1(n,ar1(1,2),1);
-        d2=rednoise_ar1(n,ar1(2,2),1);
-    else
-        d1=rednoise_ar1(n,ar1(1),1);
-        d2=rednoise_ar1(n,ar1(2),1);
-    end
+    d1=pinknoise(n);
+    d2=pinknoise(n);
     [W1,~,~,~] = wavelet(d1,dt,pad,dj,s0,j1,mother);
     [W2,~,~,~] = wavelet(d2,dt,pad,dj,s0,j1,mother);
 
