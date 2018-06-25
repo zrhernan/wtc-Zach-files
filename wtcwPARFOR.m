@@ -66,15 +66,26 @@ function varargout=wtcwPARFOR(x,y,varargin)
 
 
 % ------validate and reformat timeseries.
-[x,dt]=formatts(x);
-[y,dty]=formatts(y);
-if dt~=dty
-    error('timestep must be equal between time series')
+if size(x,2)==2 && size(y,2)==2
+    if isequal(x(:,1),y(:,1))
+        t = x(:,1);
+        dt = unique(diff(t));
+        
+        % in case time difference isn't exact
+        if length(dt) > 1; dt = dt(1); end
+    end
+else
+    [x,dt]=formatts(x);
+    [y,dty]=formatts(y);
+    if dt~=dty
+        error('timestep must be equal between time series')
+    end
+    t=(max(x(1,1),y(1,1)):dt:min(x(end,1),y(end,1)))'; %common time period
+    if length(t)<4
+        error('The two time series must overlap.')
+    end 
 end
-t=(max(x(1,1),y(1,1)):dt:min(x(end,1),y(end,1)))'; %common time period
-if length(t)<4
-    error('The two time series must overlap.')
-end
+
 
 
 
@@ -93,7 +104,7 @@ Args=struct('Pad',1,...      % pad the time series with zeroes (recommended)
             'ArrowDensity',[30 30],...
             'ArrowSize',1,...
             'ArrowHeadSize',1);
-Args=parseArgs(varargin,Args,{'BlackandWhite'});
+Args=parseArgs_wtc(varargin,Args,{'BlackandWhite'});
 if isempty(Args.J1)
     if isempty(Args.MaxScale)
         Args.MaxScale=(n*.17)*2*dt; %auto maxscale
@@ -114,11 +125,20 @@ if strcmpi(Args.AR1,'auto')
     Args.AR1=[ar1nv(x(:,2)) ar1nv(y(:,2))];
     if any(isnan(Args.AR1))
         error('Automatic AR1 estimation failed. Specify it manually (use arcov or arburg).')
-    elseif any(Args.AR1 > 1)
-        ds_err = ['Input vector ' num2str(find(Args.AR1 > 1))];
+    elseif any(abs(Args.AR1) > 1)
+        ds_err = ['Input vector ' num2str(Args.AR1(abs(Args.AR1) > 1))];
         warning(['Automatic AR1 estimation failed. ',ds_err, ' is not wide-sense stationary.',10,...
             'Using covariance method to get AR model parameters (or ''arcov'' function)'])
         Args.AR1=[arcov(x(:,2),1); arcov(y(:,2),1)];
+        if any(abs(Args.AR1(:,2)) > 1)
+            ds_err = ['Input vector ' num2str(Args.AR1(abs(Args.AR1(:,2)) > 1))];
+            warning(['AR parameter estimation using covariance method failed. ',...
+                ds_err, ' is not wide-sense stationary.',10,...
+            'Using Burg method to get AR model parameters (or ''arburg'' function)'])
+            Args.AR1=[arburg(x(:,2),1); arburg(y(:,2),1)];
+        
+        
+        end
     end
 end
 
@@ -131,17 +151,14 @@ ny=size(y,1);
 
 
 %-----------:::::::::::::--------- ANALYZE ----------::::::::::::------------
-
 [X,period,scale,coix] = wavelet(x(:,2),dt,Args.Pad,Args.Dj,Args.S0,Args.J1,Args.Mother);%#ok
 [Y,period,scale,coiy] = wavelet(y(:,2),dt,Args.Pad,Args.Dj,Args.S0,Args.J1,Args.Mother);
 
 %Smooth X and Y before truncating!  (minimize coi)
 sinv=1./(scale');
 
-
 sX=smoothwavelet(sinv(:,ones(1,nx)).*(abs(X).^2),dt,period,Args.Dj,scale);
 sY=smoothwavelet(sinv(:,ones(1,ny)).*(abs(Y).^2),dt,period,Args.Dj,scale);
-
 
 % truncate X,Y to common time interval (this is first done here so that the coi is minimized)
 dte=dt*.01; %to cricumvent round off errors with fractional timesteps
@@ -165,14 +182,18 @@ sWxy=smoothwavelet(sinv(:,ones(1,n)).*Wxy,dt,period,Args.Dj,scale);
 Rsq=abs(sWxy).^2./(sX.*sY);
 
 if (nargout>0)||(Args.MakeFigure)
+%     tic;
     wtcsig=wtcsignifwPARFOR(Args.MonteCarloCount,Args.AR1,dt,length(t)*2,Args.Pad,Args.Dj,Args.S0,Args.J1,Args.Mother,.6);
+%     wtcsig=wtcsignifwPARFOR_pinknoise(Args.MonteCarloCount,Args.AR1,dt,length(t)*2,Args.Pad,Args.Dj,Args.S0,Args.J1,Args.Mother,.6);
+%     disp('Monte Carlo testing completed in:')
+%     timecompute(toc);
     wtcsig=(wtcsig(:,2))*(ones(1,n));
     wtcsig=Rsq./wtcsig;
 end
 
 if Args.MakeFigure
-
-
+    makeWTCfigure( Rsq, period, coi, wtcsig, Wxy, t)
+%{
     Yticks = 2.^(fix(log2(min(period))):fix(log2(max(period))));
 
         H=imagesc(t,log2(period),Rsq);%#ok
@@ -210,7 +231,7 @@ if Args.MakeFigure
         hcoi=fill(tt,log2([period([end 1]) coi period([1 end])]),'w');
         set(hcoi,'alphadatamapping','direct','facealpha',.5)
         hold off
-
+%}
 end
 
 varargout={Rsq,period,scale,coi,wtcsig,Wxy};

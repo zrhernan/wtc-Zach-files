@@ -1,4 +1,4 @@
-function makeWTCfigure( Rsq, period, coi, wtcsig, Wxy, t, varargin )
+function makeWTCfigure( Rsq, period, coi, wtcsig, Wxy, t, arrowcolormat, varargin )
 %MAKEWTCFIGURE makes the same exact figure used within the wavelet 
 %coherence function by Aslak Grinsted (see wtc.m).
 % Separate plot function was generated in order to have multiple plots in
@@ -16,6 +16,9 @@ if length(dt) > 1; dt = dt(1); end
 % in case t is not a column vector
 if size(t,2) > 1; t=t'; end
 
+% in case matrix array of arrow RGB values not given
+if ~exist('arrowcolormat','var'), arrowcolormat = {[1 .5 .5]}; end
+
 %----------default arguments for the WTC Plot-----------
 Args=struct('Dj',1/12, ...    % this will do 12 sub-octaves per octave
             'S0',2*dt,...    % this says start at a scale of twice 
@@ -26,7 +29,7 @@ Args=struct('Dj',1/12, ...    % this will do 12 sub-octaves per octave
             'ArrowDensity',[30 30],...
             'ArrowSize',1,...
             'ArrowHeadSize',1);
-Args=parseArgs(varargin,Args,{'BlackandWhite'});
+Args=parseArgs_wtc(varargin,Args,{'BlackandWhite'});
 
 if isempty(Args.J1)
     if isempty(Args.MaxScale)
@@ -74,20 +77,52 @@ hold on
 aWxy=angle(Wxy);
 aaa=aWxy;
 aaa(Rsq<.5)=NaN; %remove phase indication where Rsq is low
+aaa(wtcsig<1)=NaN; %remove phase indication where Rsq is not significant
 %[xx,yy]=meshgrid(t(1:5:end),log2(period));
 
 phs_dt=round(length(t)/Args.ArrowDensity(1)); tidx=max(floor(phs_dt/2),1):phs_dt:length(t);
 phs_dp=round(length(period)/Args.ArrowDensity(2)); pidx=max(floor(phs_dp/2),1):phs_dp:length(period);
-phaseplot(t(tidx),log2(period(pidx)),aaa(pidx,tidx),Args.ArrowSize,Args.ArrowHeadSize);
-
-if ~all(isnan(wtcsig))
-    [c,h] = contour(t,log2(period),wtcsig,[1 1],'k');%#ok
-    set(h,'linewidth',2)
+if length(arrowcolormat(:)) == 1
+    pre_colormat = repmat(arrowcolormat,size(Rsq));
+    lowcohere = find(Rsq<.5);
+    for jj = 1:length(lowcohere);    
+        pre_colormat{lowcohere(jj)}=NaN; %remove phase indication where Rsq is low
+    end
+    nonsignif = find(wtcsig<1);
+    for jj = 1:length(nonsignif);    
+        pre_colormat{nonsignif(jj)}=NaN; %remove phase indication where Rsq is low
+    end
+    colormat = repmat(pre_colormat,length(pidx),length(tidx));
+else
+    lowcohere = find(Rsq<.5);
+    for jj = 1:length(lowcohere);
+        arrowcolormat{lowcohere(jj)}=NaN; %remove phase indication where Rsq is low
+    end
+    nonsignif = find(wtcsig<1);
+    for jj = 1:length(nonsignif);    
+        arrowcolormat{nonsignif(jj)}=NaN; %remove phase indication where Rsq is low
+    end
+    colormat = arrowcolormat(pidx,tidx);
 end
+
+phaseplot(t(tidx),log2(period(pidx)),aaa(pidx,tidx),Args.ArrowSize,Args.ArrowHeadSize,colormat);
+
+% % significant contour plot
+% if ~all(isnan(wtcsig))
+%     [c,h] = contour(t,log2(period),wtcsig,[1 1],'k');%#ok
+%     set(h,'linewidth',2)
+% end
 %suptitle([sTitle ' coherence']);
 tt=[t([1 1])-dt*.5;t;t([end end])+dt*.5];
 hcoi=fill(tt,log2([period([end 1]) coi period([1 end])]),'w');
 set(hcoi,'alphadatamapping','direct','facealpha',.5)
 hold off
+
+% in case removing areas outside the COI doesn't work, try this....
+set(gcf,'renderer','painters');
+set(gcf,'renderer','zbuffer');
+set(gcf,'renderer','opengl');
+set(findobj(gca,'type','patch'),'alphadatamap','none','facealpha',1)
+
 end % EOF
 
