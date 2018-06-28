@@ -80,36 +80,36 @@ else
     aWxy = Wxy;
 end
 aaa=aWxy;
-aaa(Rsq<.5)=NaN; %remove phase indication where Rsq is low
-aaa(wtcsig<1)=NaN; %remove phase indication where Rsq is not significant
+aaa(Rsq<.25)=NaN; %remove phase indication where Rsq is low
+aaa(wtcsig<0.5)=NaN; %remove phase indication where Rsq is not significant
 %[xx,yy]=meshgrid(t(1:5:end),log2(period));
 
 phs_dt=round(length(t)/Args.ArrowDensity(1)); tidx=max(floor(phs_dt/2),1):phs_dt:length(t);
 phs_dp=round(length(period)/Args.ArrowDensity(2)); pidx=max(floor(phs_dp/2),1):phs_dp:length(period);
 if length(arrowcolormat(:)) == 1
     pre_colormat = repmat(arrowcolormat,size(Rsq));
-    lowcohere = find(Rsq<.5);
+    lowcohere = find(Rsq<.25);
     for jj = 1:length(lowcohere);    
         pre_colormat{lowcohere(jj)}=NaN; %remove phase indication where Rsq is low
     end
-    nonsignif = find(wtcsig<1);
+    nonsignif = find(wtcsig<0.5);
     for jj = 1:length(nonsignif);    
-        pre_colormat{nonsignif(jj)}=NaN; %remove phase indication where Rsq is low
+        pre_colormat{nonsignif(jj)}=NaN; %remove phase indication where Rsq is non-significant
     end
-    colormat = repmat(pre_colormat,length(pidx),length(tidx));
-else
-    lowcohere = find(Rsq<.5);
+    colormat = pre_colormat(pidx,tidx);
+elseif size(arrowcolormat(:)) == size(Rsq)
+    lowcohere = find(Rsq<.25);
     for jj = 1:length(lowcohere);
         arrowcolormat{lowcohere(jj)}=NaN; %remove phase indication where Rsq is low
     end
-    nonsignif = find(wtcsig<1);
+    nonsignif = find(wtcsig<0.5);
     for jj = 1:length(nonsignif);    
-        arrowcolormat{nonsignif(jj)}=NaN; %remove phase indication where Rsq is low
+        arrowcolormat{nonsignif(jj)}=NaN; %remove phase indication where Rsq is non-significant
     end
     colormat = arrowcolormat(pidx,tidx);
 end
 
-phaseplot(t(tidx),log2(period(pidx)),aaa(pidx,tidx),Args.ArrowSize,Args.ArrowHeadSize,colormat);
+phaseplot_colorchange(t(tidx),log2(period(pidx)),aaa(pidx,tidx),Args.ArrowSize,Args.ArrowHeadSize,colormat);
 
 % % significant contour plot
 % if ~all(isnan(wtcsig))
